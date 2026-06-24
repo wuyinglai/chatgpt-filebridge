@@ -307,7 +307,7 @@ $serverProc = Start-Process `
 
 $alive = $false
 for ($i = 0; $i -lt 12; $i++) {
-    if (Test-HttpOk -Uri "http://127.0.0.1:$Port/healthz" -TimeoutSec 3) {
+    if (Test-HttpOk -Uri "http://127.0.0.1:$Port/" -TimeoutSec 3) {
         $alive = $true
         break
     }
