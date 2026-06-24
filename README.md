@@ -20,14 +20,19 @@ ChatGPT's built-in file tools require uploading documents to OpenAI's servers. F
 
 ```bash
 cd local-llm-mcp
-pip install fastapi uvicorn httpx mcp mcp-oauth
+pip install -r requirements.txt
 ```
 
 ### 2. Configure LLM (optional)
 
 Copy the example config and fill in your API key:
 
+```powershell
+# PowerShell
+Copy-Item local-llm-mcp\llm_config.json.example local-llm-mcp\llm_config.json
+```
 ```bash
+# macOS / Linux
 cp local-llm-mcp/llm_config.json.example local-llm-mcp/llm_config.json
 ```
 
@@ -50,8 +55,13 @@ This enables the `call_llm` tool, which lets ChatGPT delegate text generation to
 #### Windows (PowerShell)
 
 ```powershell
-.\启动文件工作室.ps1 C:\path\to\your\project
+.\start-fileworks.ps1 C:\path\to\your\project
 ```
+
+> **Note:** If PowerShell blocks the script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first, or launch with:
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File .\start-fileworks.ps1 C:\path\to\your\project
+> ```
 
 The script will:
 
@@ -62,16 +72,20 @@ The script will:
 
 #### Manual launch (any OS)
 
-```bash
-cd local-llm-mcp
-python combined_mcp_server.py 7676 /path/to/your/project https://your-tunnel-url.trycloudflare.com
-```
-
-You'll need to set up the Cloudflare Tunnel separately:
+First, start the Cloudflare Tunnel in one terminal:
 
 ```bash
 cloudflared tunnel --protocol http2 --url http://127.0.0.1:7676
 ```
+
+Wait for it to print a `https://xxx.trycloudflare.com` URL, then start the server in another terminal:
+
+```bash
+cd local-llm-mcp
+python combined_mcp_server.py 7676 /path/to/your/project https://xxx.trycloudflare.com
+```
+
+Replace `https://xxx.trycloudflare.com` with the actual URL from the tunnel output.
 
 ### 4. Connect ChatGPT
 
@@ -141,13 +155,19 @@ All file paths are sandboxed to the root directory you specify at startup. Path 
 
 ## Alternative: Enhanced DevSpace
 
-The `devspace-fileworks-lite/` directory contains a modified version of [@waishnav/devspace](https://github.com/waishnav/devspace) with additional features: a Chinese-language admin console, multi-profile LLM management, filesystem browsing, and the `call_llm` tool.
+The `devspace-fileworks-lite/` directory contains a modified version of [@waishnav/devspace](https://github.com/waishnav/devspace) with additional features: an admin web console, multi-profile LLM management, filesystem browsing, and the `call_llm` tool.
 
 ```powershell
-.\启动增强DevSpace.ps1 C:\path\to\your\project
+.\start-enhanced-devspace.ps1 C:\path\to\your\project
 ```
 
-This approach requires **Node.js 24+** and the `@waishnav/devspace` package installed globally (`npm install -g @waishnav/devspace`). The connector URL for this approach must include `/mcp`:
+This approach requires **Node.js 24+** and the `@waishnav/devspace` package installed globally:
+
+```bash
+npm install -g @waishnav/devspace
+```
+
+The connector URL for this approach must include `/mcp`:
 
 ```
 https://your-tunnel.trycloudflare.com/mcp
@@ -159,18 +179,21 @@ The unmodified `devspace-fileworks/` directory is also included as a reference b
 
 ```
 chatgpt-filebridge/
-├── local-llm-mcp/              # Python MCP server (recommended)
-│   ├── combined_mcp_server.py  # Main server: files + LLM + OAuth
-│   ├── llm_config.py           # LLM config loader
-│   ├── llm_config.json.example # Config template
-│   └── local_llm_server.py     # Standalone LLM-only MCP server
-├── devspace-fileworks-lite/    # Enhanced DevSpace fork (Node.js)
-├── devspace-fileworks/         # Stock DevSpace (Node.js, reference)
-├── 启动文件工作室.ps1           # FileWorks launcher (Windows)
-├── 启动增强DevSpace.ps1        # Enhanced DevSpace launcher (Windows)
-├── 启动DevSpace隧道.ps1        # Stock DevSpace launcher (Windows)
-├── hot-restart-devspace.ps1    # Hot-restart without new tunnel URL
-└── PROJECT_HANDOFF.md          # Internal design notes
+├── local-llm-mcp/                  # Python MCP server (recommended)
+│   ├── combined_mcp_server.py      # Main server: files + LLM + OAuth
+│   ├── llm_config.py               # LLM config loader
+│   ├── llm_config.json.example     # Config template
+│   ├── local_llm_server.py         # Standalone LLM-only MCP server
+│   ├── requirements.txt            # Python dependencies
+│   └── start-llm-mcp.ps1           # Standalone launcher (Windows)
+├── devspace-fileworks-lite/        # Enhanced DevSpace fork (Node.js)
+├── devspace-fileworks/             # Stock DevSpace (Node.js, reference)
+├── start-fileworks.ps1             # FileWorks launcher (Windows)
+├── start-enhanced-devspace.ps1     # Enhanced DevSpace launcher (Windows)
+├── start-devspace-tunnel.ps1       # Stock DevSpace launcher (Windows)
+├── hot-restart-devspace.ps1        # Hot-restart without new tunnel URL
+├── switch-directory.ps1            # Switch exposed directory without restart
+└── test-enhanced-devspace.ps1      # Smoke test for Enhanced DevSpace
 ```
 
 ## Security Notes
@@ -188,11 +211,14 @@ chatgpt-filebridge/
 2. Check `https://your-tunnel.trycloudflare.com/.well-known/oauth-authorization-server` returns 200.
 3. Verify the startup script window is still running and shows `[OK] Health`.
 
+**PowerShell blocks script execution:**
+Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` to allow local scripts, or launch with `-ExecutionPolicy Bypass`.
+
 **Tunnel URL changes after restart:**
 Free `trycloudflare.com` tunnels generate a new URL each time. You'll need to update the connector URL in ChatGPT. For a persistent URL, consider a paid Cloudflare Tunnel with a custom domain.
 
 **Cloudflare tunnel process crashes:**
-The FileWorks launcher (`启动文件工作室.ps1`) includes a supervisor loop that restarts the Python server automatically. However, if the `cloudflared` process itself dies, you'll need to restart the entire script to get a new tunnel URL.
+The FileWorks launcher (`start-fileworks.ps1`) includes a supervisor loop that restarts the Python server automatically. However, if the `cloudflared` process itself dies, you'll need to restart the entire script to get a new tunnel URL.
 
 ## License
 

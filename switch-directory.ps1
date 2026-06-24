@@ -36,7 +36,7 @@ if (-not $devspaceCmd -or -not (Test-Path $devspaceCmd)) {
 
 $configFile = Join-Path $env:USERPROFILE ".devspace\config.json"
 if (-not (Test-Path $configFile)) {
-    Write-Host "[ERROR] DevSpace config not found. Run 启动DevSpace隧道.ps1 first." -ForegroundColor Red
+    Write-Host "[ERROR] DevSpace config not found. Run start-devspace-tunnel.ps1 first." -ForegroundColor Red
     pause
     exit 1
 }

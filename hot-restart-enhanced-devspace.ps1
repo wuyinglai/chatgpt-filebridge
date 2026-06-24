@@ -122,7 +122,7 @@ function Invoke-HotRestart {
     $llmConfig = Join-Path $projectRoot "local-llm-mcp\llm_config.json"
 
     if (-not (Test-Path $configFile)) {
-        throw "Missing DevSpace config: $configFile. Run 启动增强DevSpace.ps1 first."
+        throw "Missing DevSpace config: $configFile. Run start-enhanced-devspace.ps1 first."
     }
     if (-not (Test-Path $globalNodeModules)) {
         throw "Global DevSpace dependencies not found: $globalNodeModules"
@@ -199,7 +199,7 @@ if ($Watch) {
     $watchPaths = @(
         (Join-Path $projectRoot "devspace-fileworks-lite\dist\server.js"),
         (Join-Path $projectRoot "devspace-fileworks-lite\dist\cli.js"),
-        (Join-Path $projectRoot "启动增强DevSpace.ps1")
+        (Join-Path $projectRoot "start-enhanced-devspace.ps1")
     )
     $lastStamp = ""
     while ($true) {

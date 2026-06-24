@@ -29,8 +29,8 @@ function Stop-KnownSupervisorParent {
 
     $cmd = [string]$parent.CommandLine
     if (
-        $cmd -like "*启动文件工作室.ps1*" -or
-        $cmd -like "*启动增强DevSpace.ps1*" -or
+        $cmd -like "*start-fileworks.ps1*" -or
+        $cmd -like "*start-enhanced-devspace.ps1*" -or
         $cmd -like "* -s -NoLogo -NoProfile*"
     ) {
         Stop-Process -Id $parent.ProcessId -Force -ErrorAction SilentlyContinue
@@ -71,8 +71,8 @@ function Stop-RelatedServers {
             $_.ProcessId -ne $PID -and (
                 ($cmd -match $escapedRoot -and $cmd -match "combined_mcp_server\.py" -and $cmd -match $portPattern) -or
                 ($cmd -match $escapedRoot -and $cmd -like "*devspace-fileworks-lite*dist*cli.js*serve*") -or
-                ($cmd -match $escapedRoot -and $cmd -like "*启动文件工作室.ps1*" -and $cmd -match $portPattern) -or
-                ($cmd -match $escapedRoot -and $cmd -like "*启动增强DevSpace.ps1*" -and $cmd -match $portPattern)
+                ($cmd -match $escapedRoot -and $cmd -like "*start-fileworks.ps1*" -and $cmd -match $portPattern) -or
+                ($cmd -match $escapedRoot -and $cmd -like "*start-enhanced-devspace.ps1*" -and $cmd -match $portPattern)
             )
         }
 
