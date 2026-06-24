@@ -70,8 +70,8 @@ function Show-Diagnosis {
     Write-Host ""
 
     $checks = @(
-        Test-Url -Name "Local health" -Uri "http://127.0.0.1:7676/"
-        Test-Url -Name "Public health" -Uri "$baseUrl/"
+        Test-Url -Name "Local health" -Uri "http://127.0.0.1:7676/.well-known/oauth-authorization-server"
+        Test-Url -Name "Public health" -Uri "$baseUrl/.well-known/oauth-authorization-server"
         Test-Url -Name "OAuth metadata" -Uri "$baseUrl/.well-known/oauth-authorization-server"
         Test-Url -Name "OIDC metadata" -Uri "$baseUrl/.well-known/openid-configuration"
         Test-Url -Name "Resource metadata" -Uri "$baseUrl/.well-known/oauth-protected-resource/mcp"

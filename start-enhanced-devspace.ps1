@@ -307,8 +307,7 @@ $serverProc = Start-Process `
 
 $alive = $false
 for ($i = 0; $i -lt 12; $i++) {
-    $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-    if ($listener) {
+    if (Test-HttpOk -Uri "http://127.0.0.1:$Port/.well-known/oauth-authorization-server" -TimeoutSec 3) {
         $alive = $true
         break
     }

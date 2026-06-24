@@ -154,7 +154,7 @@ function Invoke-HotRestart {
 
     $alive = $false
     for ($i = 0; $i -lt 15; $i++) {
-        if (Get-NetTCPConnection -LocalPort $TargetPort -State Listen -ErrorAction SilentlyContinue) {
+        if (Test-HttpOk -Uri "http://127.0.0.1:$TargetPort/.well-known/oauth-authorization-server" -TimeoutSec 3) {
             $alive = $true
             break
         }
