@@ -288,6 +288,7 @@ $serverErrLog = Join-Path $env:TEMP "enhanced-devspace-server-$Port-$PID.err.log
 $requestLog = Join-Path $env:TEMP "enhanced-devspace-requests-$Port-$PID.jsonl"
 Remove-Item -LiteralPath $serverOutLog,$serverErrLog,$requestLog -Force -ErrorAction SilentlyContinue
 $env:DEVSPACE_TRUST_PROXY = "true"
+$env:DEVSPACE_PUBLIC_BASE_URL = $tunnelUrl
 $env:DEVSPACE_LOG_LEVEL = "debug"
 $env:DEVSPACE_LOG_FORMAT = "pretty"
 $env:DEVSPACE_WIDGETS = "off"
