@@ -160,7 +160,17 @@ if (-not $npmGlobalRoot) {
 }
 $globalDevspace = Join-Path $npmGlobalRoot "@waishnav\devspace"
 $globalNodeModules = Join-Path $globalDevspace "node_modules"
-$cloudflaredCmd = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
+$cloudflaredCmd = (Get-Command cloudflared.exe -ErrorAction SilentlyContinue).Source
+if (-not $cloudflaredCmd) {
+    $cloudflaredCmd = (Get-Command cloudflared.cmd -ErrorAction SilentlyContinue).Source
+}
+if (-not $cloudflaredCmd) {
+    $ps1 = (Get-Command cloudflared.ps1 -ErrorAction SilentlyContinue).Source
+    if ($ps1) {
+        $cloudflaredCmd = $ps1
+        $cloudflaredViaPs1 = $true
+    }
+}
 if (-not $cloudflaredCmd) {
     Write-Host "[ERROR] cloudflared not found on PATH. Install: winget install Cloudflare.cloudflared" -ForegroundColor Red
     pause
@@ -213,9 +223,16 @@ Write-Host "[2/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
 $tunnelOutLog = Join-Path $env:TEMP "enhanced-devspace-cloudflared-$Port-$PID.out.log"
 $tunnelErrLog = Join-Path $env:TEMP "enhanced-devspace-cloudflared-$Port-$PID.err.log"
 Remove-Item -LiteralPath $tunnelOutLog,$tunnelErrLog -Force -ErrorAction SilentlyContinue
+if ($cloudflaredViaPs1) {
+    $cfFilePath = "powershell.exe"
+    $cfArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$cloudflaredCmd`"", "tunnel", "--protocol", "http2", "--url", "http://127.0.0.1:$Port")
+} else {
+    $cfFilePath = "cmd.exe"
+    $cfArgs = @("/d", "/c", "`"$cloudflaredCmd`" tunnel --protocol http2 --url http://127.0.0.1:$Port")
+}
 $tunnelProc = Start-Process `
-    -FilePath "cmd.exe" `
-    -ArgumentList @("/d", "/c", "`"$cloudflaredCmd`" tunnel --protocol http2 --url http://127.0.0.1:$Port") `
+    -FilePath $cfFilePath `
+    -ArgumentList $cfArgs `
     -RedirectStandardOutput $tunnelOutLog `
     -RedirectStandardError $tunnelErrLog `
     -WindowStyle Hidden `

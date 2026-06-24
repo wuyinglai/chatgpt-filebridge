@@ -143,16 +143,27 @@ Stop-CloudflaredForPort -TargetPort $Port
 Start-Sleep -Seconds 2
 
 Write-Host "[2/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
-$cloudflaredCmd = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
-if (-not $cloudflaredCmd) {
+$cloudflaredExe = (Get-Command cloudflared.exe -ErrorAction SilentlyContinue).Source
+$cloudflaredShim = (Get-Command cloudflared.cmd -ErrorAction SilentlyContinue).Source
+if (-not $cloudflaredShim) {
+    $cloudflaredShim = (Get-Command cloudflared.ps1 -ErrorAction SilentlyContinue).Source
+}
+
+if ($cloudflaredExe) {
+    $cfFilePath = $cloudflaredExe
+    $cfArgumentList = "tunnel --protocol http2 --url http://127.0.0.1:$Port"
+} elseif ($cloudflaredShim) {
+    $cfFilePath = "cmd.exe"
+    $cfArgumentList = "/d /c `"$cloudflaredShim`" tunnel --protocol http2 --url http://127.0.0.1:$Port"
+} else {
     Write-Host "[ERROR] cloudflared not found on PATH. Install: winget install Cloudflare.cloudflared" -ForegroundColor Red
     pause
     exit 1
 }
 
 $cloudflaredProc = Start-Process `
-    -FilePath $cloudflaredCmd `
-    -ArgumentList "tunnel --protocol http2 --url http://127.0.0.1:$Port" `
+    -FilePath $cfFilePath `
+    -ArgumentList $cfArgumentList `
     -RedirectStandardOutput $logFile `
     -RedirectStandardError $errFile `
     -WindowStyle Hidden `

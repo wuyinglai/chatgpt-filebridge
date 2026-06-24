@@ -39,7 +39,13 @@ if (-not (Test-Path $Directory)) {
 }
 
 $devspaceCmd = (Get-Command devspace -ErrorAction SilentlyContinue).Source
-$cloudflaredCmd = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
+$cloudflaredCmd = (Get-Command cloudflared.exe -ErrorAction SilentlyContinue).Source
+if (-not $cloudflaredCmd) {
+    $cloudflaredCmd = (Get-Command cloudflared.cmd -ErrorAction SilentlyContinue).Source
+}
+if (-not $cloudflaredCmd) {
+    $cloudflaredCmd = (Get-Command cloudflared.ps1 -ErrorAction SilentlyContinue).Source
+}
 if (-not $devspaceCmd -or -not (Test-Path $devspaceCmd)) {
     Write-Host "[ERROR] devspace command not found. Make sure it is installed and on your PATH." -ForegroundColor Red
     pause
