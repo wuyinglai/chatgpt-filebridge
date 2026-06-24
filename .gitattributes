@@ -1,0 +1,4 @@
+# Mark minified/bundled files as binary to suppress diffs
+dist/ui/assets/*.js binary
+dist/ui/assets/*.css binary
+dist/ui/.vite/manifest.json binary
