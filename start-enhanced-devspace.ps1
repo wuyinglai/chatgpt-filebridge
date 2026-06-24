@@ -307,7 +307,8 @@ $serverProc = Start-Process `
 
 $alive = $false
 for ($i = 0; $i -lt 12; $i++) {
-    if (Test-HttpOk -Uri "http://127.0.0.1:$Port/" -TimeoutSec 3) {
+    $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($listener) {
         $alive = $true
         break
     }
