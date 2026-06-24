@@ -46,6 +46,24 @@ function Stop-FileWorksServerProcesses {
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
+function Stop-RelatedServers {
+    param([int]$TargetPort, [string]$ProjectRoot)
+    $escapedRoot = [regex]::Escape($ProjectRoot)
+    $matched = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $cmd = [string]$_.CommandLine
+            $_.ProcessId -ne $PID -and (
+                ($cmd -match $escapedRoot -and $cmd -like "*devspace-fileworks-lite*dist*cli.js*serve*") -or
+                ($cmd -match $escapedRoot -and $cmd -like "*start-enhanced-devspace.ps1*") -or
+                ($cmd -match $escapedRoot -and $cmd -like "*hot-restart*devspace*")
+            )
+        }
+
+    foreach ($proc in $matched) {
+        Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Ensure-LlmConfig {
     param([string]$ServerDir)
     $configFile = Join-Path $ServerDir "llm_config.json"
@@ -136,11 +154,26 @@ $serverOutFile = Join-Path $env:TEMP "fileworks_server_stdout.log"
 $serverErrFile = Join-Path $env:TEMP "fileworks_server_stderr.log"
 Remove-Item -LiteralPath $logFile,$errFile -ErrorAction SilentlyContinue
 
-Write-Host "[1/3] Stopping old FileWorks processes on port $Port..." -ForegroundColor Yellow
+Write-Host "[1/3] Stopping old services on port $Port..." -ForegroundColor Yellow
 Stop-PortOwner -TargetPort $Port
 Stop-FileWorksServerProcesses -Script $serverScript -ListenPort $Port
+Stop-RelatedServers -TargetPort $Port -ProjectRoot $projectRoot
 Stop-CloudflaredForPort -TargetPort $Port
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 3
+
+# Verify port is actually free; retry if not
+$stillBusy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($stillBusy) {
+    Write-Host "  Port still busy, retrying cleanup..." -ForegroundColor Yellow
+    Stop-PortOwner -TargetPort $Port
+    Start-Sleep -Seconds 3
+    $stillBusy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($stillBusy) {
+        Write-Host "[ERROR] Cannot free port $Port. Kill the process manually." -ForegroundColor Red
+        pause
+        exit 1
+    }
+}
 
 Write-Host "[2/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
 $cloudflaredExe = (Get-Command cloudflared.exe -ErrorAction SilentlyContinue).Source

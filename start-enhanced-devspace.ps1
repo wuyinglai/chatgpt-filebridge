@@ -69,10 +69,11 @@ function Stop-RelatedServers {
         Where-Object {
             $cmd = [string]$_.CommandLine
             $_.ProcessId -ne $PID -and (
-                ($cmd -match $escapedRoot -and $cmd -match "combined_mcp_server\.py" -and $cmd -match $portPattern) -or
+                ($cmd -match $escapedRoot -and $cmd -match "combined_mcp_server\.py") -or
                 ($cmd -match $escapedRoot -and $cmd -like "*devspace-fileworks-lite*dist*cli.js*serve*") -or
-                ($cmd -match $escapedRoot -and $cmd -like "*start-fileworks.ps1*" -and $cmd -match $portPattern) -or
-                ($cmd -match $escapedRoot -and $cmd -like "*start-enhanced-devspace.ps1*" -and $cmd -match $portPattern)
+                ($cmd -match $escapedRoot -and $cmd -like "*start-fileworks.ps1*") -or
+                ($cmd -match $escapedRoot -and $cmd -like "*start-enhanced-devspace.ps1*") -or
+                ($cmd -match $escapedRoot -and $cmd -like "*hot-restart*devspace*")
             )
         }
 
@@ -217,7 +218,21 @@ Write-Host "[1/3] Stopping old services on port $Port..." -ForegroundColor Yello
 Stop-PortOwner -TargetPort $Port
 Stop-RelatedServers -TargetPort $Port -ProjectRoot $projectRoot
 Stop-CloudflaredForPort -TargetPort $Port
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 3
+
+# Verify port is actually free; retry if not
+$stillBusy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($stillBusy) {
+    Write-Host "  Port still busy, retrying cleanup..." -ForegroundColor Yellow
+    Stop-PortOwner -TargetPort $Port
+    Start-Sleep -Seconds 3
+    $stillBusy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($stillBusy) {
+        Write-Host "[ERROR] Cannot free port $Port. Kill the process manually." -ForegroundColor Red
+        pause
+        exit 1
+    }
+}
 
 Write-Host "[2/3] Starting Cloudflare Tunnel..." -ForegroundColor Yellow
 $tunnelOutLog = Join-Path $env:TEMP "enhanced-devspace-cloudflared-$Port-$PID.out.log"
