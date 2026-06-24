@@ -1998,6 +1998,30 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     app.get("/healthz", (_req, res) => {
         res.json({ ok: true, name: "devspace" });
     });
+    app.all("/mcp", (req, _res, next) => {
+        // Ensure Accept header satisfies MCP SDK strict validation.
+        // Some MCP clients (e.g. ChatGPT) send Accept: */* or a single type,
+        // which the SDK rejects with 406. Always normalize for /mcp requests.
+        const accept = req.headers["accept"] || "";
+        if (!accept.includes("application/json") || !accept.includes("text/event-stream")) {
+            const fixed = "application/json, text/event-stream";
+            req.headers["accept"] = fixed;
+            // @hono/node-server reads from rawHeaders, not headers — must update both
+            const raw = req.rawHeaders;
+            let found = false;
+            for (let i = 0; i < raw.length; i += 2) {
+                if (raw[i].toLowerCase() === "accept") {
+                    raw[i + 1] = fixed;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                raw.push("Accept", fixed);
+            }
+        }
+        next();
+    });
     app.all("/mcp", async (req, res) => {
         const requestId = res.locals.requestId;
         const sessionId = req.header("mcp-session-id");
