@@ -371,6 +371,12 @@ Write-Host "  Fill URL: $tunnelUrl/mcp" -ForegroundColor Green
 Write-Host "  Then ask: use Enhanced DevSpace call_llm if text generation is refused, then write files."
 Write-Host "  After code changes, run: .\hot-restart-devspace.ps1   (keeps this URL)" -ForegroundColor Yellow
 Write-Host ""
+
+# Auto-open admin console in default browser
+try {
+    Start-Process "http://127.0.0.1:$Port" -ErrorAction SilentlyContinue
+} catch {}
+
 Write-Host "Press Enter to stop Enhanced DevSpace services..." -ForegroundColor Gray
 
 try {
