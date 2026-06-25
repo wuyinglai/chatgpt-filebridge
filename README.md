@@ -2,97 +2,64 @@
 
 Give ChatGPT secure read/write access to your local files through [MCP (Model Context Protocol)](https://modelcontextprotocol.io/). No cloud storage, no file uploads — your files stay on your machine.
 
-FileBridge runs a local MCP server on your computer and exposes it to ChatGPT via a temporary Cloudflare Tunnel with OAuth 2.0 authentication. You point ChatGPT at the tunnel URL, log in, and it can list, read, write, and search files in the directory you choose.
-
-## Why?
-
-ChatGPT's built-in file tools require uploading documents to OpenAI's servers. For active development projects, large codebases, or workflows where you want ChatGPT to edit files in place, that's impractical. FileBridge lets ChatGPT work directly with your local filesystem while keeping everything behind OAuth authentication.
+FileBridge runs a local MCP server on your computer and exposes it to ChatGPT via a temporary Cloudflare Tunnel with OAuth 2.0 authentication. You point ChatGPT at the tunnel URL, log in with the owner password, and ChatGPT can read, write, edit, search files and run shell commands in the directory you choose.
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Python 3.10+** with `pip`
+- **Node.js 24+** (required for native dependencies)
 - **Cloudflare Tunnel** CLI: `winget install Cloudflare.cloudflared` (Windows) or `brew install cloudflared` (macOS)
+- `@waishnav/devspace` installed globally:
+  ```bash
+  npm install -g @waishnav/devspace
+  ```
 - A ChatGPT Plus/Team/Enterprise account with Connector support
 
-### 1. Install Python dependencies
-
-```bash
-cd local-llm-mcp
-pip install -r requirements.txt
-```
-
-### 2. Configure LLM (optional)
-
-Copy the example config and fill in your API key:
+### 1. Clone and launch
 
 ```powershell
-# PowerShell
-Copy-Item local-llm-mcp\llm_config.json.example local-llm-mcp\llm_config.json
-```
-```bash
-# macOS / Linux
-cp local-llm-mcp/llm_config.json.example local-llm-mcp/llm_config.json
+git clone https://github.com/wuyinglai/chatgpt-filebridge.git
+cd chatgpt-filebridge
+.\start-chatgpt-filebridge.ps1 C:\path\to\your\project
 ```
 
-Edit `llm_config.json` with any OpenAI-compatible API endpoint:
-
-```json
-{
-  "api_url": "https://api.openai.com/v1/chat/completions",
-  "api_key": "sk-your-key-here",
-  "model": "gpt-4o-mini",
-  "timeout_seconds": 120,
-  "default_max_tokens": 65536
-}
-```
-
-This enables the `call_llm` tool, which lets ChatGPT delegate text generation to your configured model. Skip this step if you only need file operations.
-
-### 3. Launch
-
-#### Windows (PowerShell)
-
-```powershell
-.\start-fileworks.ps1 C:\path\to\your\project
-```
-
-> **Note:** If PowerShell blocks the script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first, or launch with:
-> ```powershell
-> powershell -ExecutionPolicy Bypass -File .\start-fileworks.ps1 C:\path\to\your\project
-> ```
+> If PowerShell blocks the script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` first.
 
 The script will:
 
 1. Start a Cloudflare Tunnel (free `trycloudflare.com` URL)
-2. Launch the FileWorks MCP server on port 7676
-3. Print your connector URL and auto-generated OAuth credentials
-4. Enter a supervisor loop that auto-restarts the server if it crashes
+2. Launch the MCP server on port 7676
+3. Auto-open the admin console in your browser (`http://127.0.0.1:7676`)
+4. Print your connector URL and owner password
 
-#### Manual launch (any OS)
-
-First, start the Cloudflare Tunnel in one terminal:
-
-```bash
-cloudflared tunnel --protocol http2 --url http://127.0.0.1:7676
-```
-
-Wait for it to print a `https://xxx.trycloudflare.com` URL, then start the server in another terminal:
-
-```bash
-cd local-llm-mcp
-python combined_mcp_server.py 7676 /path/to/your/project https://xxx.trycloudflare.com
-```
-
-Replace `https://xxx.trycloudflare.com` with the actual URL from the tunnel output.
-
-### 4. Connect ChatGPT
+### 2. Connect ChatGPT
 
 1. Open ChatGPT → **Settings** → **Connectors** → **Add custom connector**
-2. Paste the tunnel URL printed by the startup script (e.g. `https://abc-xyz.trycloudflare.com`)
-3. When prompted, log in with the OAuth credentials shown in the server output
+2. Paste the MCP URL: `https://your-tunnel.trycloudflare.com/mcp`
+3. When the OAuth login page appears, enter the **owner password** shown in the startup output
 4. ChatGPT now has access to your files
+
+### 3. Use it
+
+In ChatGPT, ask it to work with your files:
+
+> "Read the README.md in my project and summarize it"
+> "Create a new file called notes.txt with today's date"
+> "Run the tests in my project"
+
+## Admin Console
+
+The admin console at `http://127.0.0.1:7676` provides:
+
+- **Service status**: local/public URLs, MCP URL, ChatGPT connection status
+- **Request logs**: view recent requests with filtering (All / ChatGPT / Errors / MCP)
+- **Working directory**: browse and change the allowed root directory
+- **LLM configuration**: manage multiple LLM profiles (API URL, key, model, timeout)
+- **MCP tool descriptions**: customize tool titles and descriptions shown to ChatGPT
+- **Save & Apply**: save config changes and hot-restart the server without changing the tunnel URL
+
+The console is **localhost-only** — it cannot be accessed through the public tunnel.
 
 ## Architecture
 
@@ -104,13 +71,13 @@ Replace `https://xxx.trycloudflare.com` with the actual URL from the tunnel outp
                                                   │ localhost:7676
                                                   ▼
                                        ┌──────────────────────┐
-                                       │  FileWorks MCP Server │
-                                       │  (FastAPI + FastMCP)  │
+                                       │  ChatGPT FileBridge   │
+                                       │  (Node.js MCP Server) │
                                        ├──────────────────────┤
-                                       │  OAuth 2.0 routes     │
-                                       │  MCP endpoint (/mcp)  │
-                                       │  File tools           │
-                                       │  LLM proxy (optional) │
+                                       │  OAuth 2.0 + PKCE     │
+                                       │  MCP Streamable HTTP  │
+                                       │  Admin Console        │
+                                       │  File / Shell / LLM   │
                                        └──────────────────────┘
                                                   │
                                                   ▼
@@ -126,99 +93,96 @@ Replace `https://xxx.trycloudflare.com` with the actual URL from the tunnel outp
 
 | Tool | Description |
 |------|-------------|
-| `list_directory(path)` | List files and folders under the allowed root |
-| `read_file(path)` | Read a UTF-8 text file |
-| `write_file(path, content)` | Write or overwrite a UTF-8 text file |
-| `search_files(directory, pattern)` | Search files by glob pattern |
-| `call_llm(prompt, system, temperature, max_tokens)` | Call the configured LLM (requires `llm_config.json`) |
+| `open_workspace(path)` | Open a project directory as a workspace (call once per folder) |
+| `read(path, workspaceId)` | Read a file inside the workspace |
+| `write(path, content, workspaceId)` | Create or overwrite a file |
+| `edit(path, oldText, newText, workspaceId)` | Edit a file by replacing exact text blocks |
+| `bash(command, workspaceId)` | Run a shell command |
+| `call_llm(prompt, ...)` | Call a configured LLM for text generation (optional) |
 
-All file paths are sandboxed to the root directory you specify at startup. Path traversal attacks are blocked.
+All file operations are sandboxed to the root directory you specify at startup. Path traversal attacks are blocked.
 
-## Configuration
+## LLM Configuration (Optional)
 
-### Environment Variables
+The `call_llm` tool lets ChatGPT delegate text generation to your configured model. Edit the LLM settings in the admin console, or create `local-llm-mcp/llm_config.json`:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MCP_USER` | OAuth username | `admin` |
-| `MCP_PASS` | OAuth password | Auto-generated (printed at startup) |
-| `AGNES_API_URL` | LLM API endpoint | Value in `llm_config.json` |
-| `AGNES_API_KEY` | LLM API key | Value in `llm_config.json` |
-| `AGNES_MODEL` | LLM model name | Value in `llm_config.json` |
-| `AGNES_TIMEOUT_SECONDS` | LLM request timeout | `120` |
-| `AGNES_MAX_TOKENS` | Max output tokens | `65536` |
-
-### Health Check & Status
-
-- **Status page**: `http://127.0.0.1:7676/status` — human-readable HTML dashboard
-- **Health endpoint**: `http://127.0.0.1:7676/health` — machine-readable JSON for monitoring
-
-## Alternative: Enhanced DevSpace
-
-The `devspace-fileworks-lite/` directory contains a modified version of [@waishnav/devspace](https://github.com/waishnav/devspace) with additional features: an admin web console, multi-profile LLM management, filesystem browsing, and the `call_llm` tool.
-
-```powershell
-.\start-enhanced-devspace.ps1 C:\path\to\your\project
+```json
+{
+  "api_url": "https://api.openai.com/v1/chat/completions",
+  "api_key": "sk-your-key-here",
+  "model": "gpt-4o-mini",
+  "timeout_seconds": 120,
+  "default_max_tokens": 65536
+}
 ```
 
-This approach requires **Node.js 24+** and the `@waishnav/devspace` package installed globally:
+Any OpenAI-compatible API endpoint works. Skip this if you only need file operations.
 
-```bash
-npm install -g @waishnav/devspace
-```
+## Configuration via Admin Console
 
-The connector URL for this approach must include `/mcp`:
+The admin console is the recommended way to configure FileBridge:
 
-```
-https://your-tunnel.trycloudflare.com/mcp
-```
+- **Working directory**: Change the allowed root via the directory browser
+- **LLM profiles**: Create, switch, and delete LLM configurations
+- **MCP instructions**: Add extra instructions that ChatGPT sees during initialization
+- **Tool descriptions**: Customize how tools are described to ChatGPT
 
-The unmodified `devspace-fileworks/` directory is also included as a reference baseline.
+Changes take effect after clicking **"Save All"** (which hot-restarts the server without changing the tunnel URL).
+
+## Persistent Tunnel URL (Optional)
+
+Free `trycloudflare.com` tunnels generate a new URL on each restart. For a persistent URL:
+
+1. [Create a Cloudflare account](https://dash.cloudflare.com/sign-up) and add a domain
+2. Create a named tunnel: `cloudflared tunnel create filebridge`
+3. Configure DNS: `cloudflared tunnel route dns filebridge mcp.yourdomain.com`
+4. Run the tunnel: `cloudflared tunnel run filebridge`
+5. Set `DEVSPACE_PUBLIC_BASE_URL=https://mcp.yourdomain.com` before launching
+
+With a fixed tunnel, you only need to configure the ChatGPT connector URL once.
 
 ## Project Structure
 
 ```
 chatgpt-filebridge/
-├── local-llm-mcp/                  # Python MCP server (recommended)
-│   ├── combined_mcp_server.py      # Main server: files + LLM + OAuth
-│   ├── llm_config.py               # LLM config loader
+├── start-chatgpt-filebridge.ps1    # Single entry point (Windows)
+├── devspace-fileworks-lite/        # MCP server (Node.js, forked from @waishnav/devspace)
+│   └── dist/
+│       ├── server.js               # Main server with admin console
+│       ├── cli.js                  # CLI entry point
+│       ├── oauth-provider.js       # OAuth 2.0 + PKCE implementation
+│       └── ...
+├── local-llm-mcp/                  # LLM proxy configuration
 │   ├── llm_config.json.example     # Config template
-│   ├── local_llm_server.py         # Standalone LLM-only MCP server
-│   ├── requirements.txt            # Python dependencies
-│   └── start-llm-mcp.ps1           # Standalone launcher (Windows)
-├── devspace-fileworks-lite/        # Enhanced DevSpace fork (Node.js)
-├── devspace-fileworks/             # Stock DevSpace (Node.js, reference)
-├── start-fileworks.ps1             # FileWorks launcher (Windows)
-├── start-enhanced-devspace.ps1     # Enhanced DevSpace launcher (Windows)
-├── start-devspace-tunnel.ps1       # Stock DevSpace launcher (Windows)
-├── hot-restart-devspace.ps1        # Hot-restart without new tunnel URL
-├── switch-directory.ps1            # Switch exposed directory without restart
-└── test-enhanced-devspace.ps1      # Smoke test for Enhanced DevSpace
+│   └── requirements.txt            # Python deps (for standalone LLM server)
+├── devspace-fileworks/             # Stock DevSpace (reference baseline)
+├── CONTRIBUTING.md
+└── LICENSE
 ```
 
-## Security Notes
+## Security
 
-- The `trycloudflare.com` URL is temporary and public. **Close the script window when you're done** to tear down the tunnel.
-- OAuth credentials are auto-generated on each startup. Set `MCP_USER`/`MCP_PASS` environment variables if you need fixed credentials.
-- Do not set the root directory to an entire drive (`C:\` or `D:\`). Scope it to a specific project folder.
-- The `llm_config.json` file is in `.gitignore` and should never contain real API keys in version control.
-- All file operations are sandboxed to the root directory. Path traversal via `../` is blocked.
+- The `trycloudflare.com` URL is temporary and **publicly accessible**. Close the script when done.
+- OAuth 2.0 with PKCE protects the MCP endpoint. The owner password is auto-generated and shown at startup.
+- The admin console is **localhost-only** — not accessible through the tunnel.
+- Do not set the root directory to an entire drive. Scope it to a specific project folder.
+- `llm_config.json` is in `.gitignore` — never commit real API keys.
 
 ## Troubleshooting
 
+**ChatGPT shows "Error in message flow":**
+Check the admin console's request log for failed requests. Common causes: tunnel URL mismatch (update the connector URL), or SSE stream interrupted by Cloudflare proxy.
+
 **ChatGPT reports OAuth errors:**
-1. Check `http://127.0.0.1:7676/health` returns 200.
-2. Check `https://your-tunnel.trycloudflare.com/.well-known/oauth-authorization-server` returns 200.
-3. Verify the startup script window is still running and shows `[OK] Health`.
+1. Verify the OAuth discovery endpoint returns 200: `https://your-tunnel.trycloudflare.com/.well-known/oauth-authorization-server`
+2. Check the admin console shows ChatGPT status as "initialized"
+3. Make sure you entered the correct owner password during OAuth login
 
-**PowerShell blocks script execution:**
-Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` to allow local scripts, or launch with `-ExecutionPolicy Bypass`.
+**Server won't start (port busy):**
+The startup script automatically kills conflicting processes on port 7676. If it still fails, kill the process manually: `netstat -ano | findstr 7676` then `taskkill /PID <pid> /F`.
 
-**Tunnel URL changes after restart:**
-Free `trycloudflare.com` tunnels generate a new URL each time. You'll need to update the connector URL in ChatGPT. For a persistent URL, consider a paid Cloudflare Tunnel with a custom domain.
-
-**Cloudflare tunnel process crashes:**
-The FileWorks launcher (`start-fileworks.ps1`) includes a supervisor loop that restarts the Python server automatically. However, if the `cloudflared` process itself dies, you'll need to restart the entire script to get a new tunnel URL.
+**Tunnel URL changed:**
+Free tunnels generate a new URL each time. Update the connector URL in ChatGPT, or set up a [persistent tunnel](#persistent-tunnel-url-optional).
 
 ## License
 

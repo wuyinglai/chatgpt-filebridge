@@ -153,7 +153,7 @@ function isLocalAdminRequest(req) {
 }
 function requireLocalAdmin(req, res, next) {
     if (!isLocalAdminRequest(req)) {
-        res.status(403).type("text/plain").send("FileWorks admin console is local-only. Open http://127.0.0.1:7676/ on this machine.");
+        res.status(403).type("text/plain").send("ChatGPT FileBridge admin console is local-only. Open http://127.0.0.1:7676/ on this machine.");
         return;
     }
     next();
@@ -692,7 +692,7 @@ function createMcpServer(config, workspaces, reviewCheckpoints) {
     const extraInstructions = mcpConfig.extraInstructions ? ` Extra user-configured MCP instructions: ${mcpConfig.extraInstructions}` : "";
     const server = new McpServer({
         name: "devspace",
-        title: "DevSpace FileWorks",
+        title: "ChatGPT FileBridge",
         version: "0.1.0",
         description: "Secure local coding workspace for MCP clients. Provides workspace-scoped file, search, edit, write, shell tools, and a configured LLM generation tool.",
     }, {
@@ -1448,7 +1448,7 @@ function adminConsoleHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FileWorks 控制台</title>
+  <title>ChatGPT FileBridge</title>
   <style>
     :root { color-scheme: light; --bg:#f6f7f9; --panel:#fff; --line:#d9dde5; --text:#111827; --muted:#6b7280; --accent:#2563eb; --ok:#0f8a4b; --warn:#b45309; --bad:#b91c1c; }
     * { box-sizing: border-box; }
@@ -1484,7 +1484,7 @@ function adminConsoleHtml() {
 <main>
   <header>
     <div>
-      <h1>FileWorks 控制台</h1>
+      <h1>ChatGPT FileBridge</h1>
       <p>本页面只允许从本机访问。公网 tunnel 不开放控制台。</p>
     </div>
     <div id="serviceStatus" class="status">加载中</div>
@@ -1542,6 +1542,36 @@ function adminConsoleHtml() {
     <div class="card full">
       <h2>最近错误 / 测试结果</h2>
       <pre id="details">加载中...</pre>
+    </div>
+    <div class="card full">
+      <h2 style="display:flex;align-items:center;justify-content:space-between;">
+        请求日志
+        <span style="display:flex;gap:8px;align-items:center;">
+          <select id="logFilter" style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;">
+            <option value="all">全部</option>
+            <option value="chatgpt">ChatGPT</option>
+            <option value="error">错误</option>
+            <option value="mcp">MCP 请求</option>
+          </select>
+          <button id="refreshLogs">刷新</button>
+          <span id="logCount" style="color:var(--muted);font-size:13px;font-weight:normal;"></span>
+        </span>
+      </h2>
+      <div style="overflow-x:auto;max-height:400px;overflow-y:auto;">
+        <table id="logTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="position:sticky;top:0;background:var(--panel);border-bottom:2px solid var(--line);">
+              <th style="text-align:left;padding:8px 6px;color:var(--muted);">时间</th>
+              <th style="text-align:left;padding:8px 6px;color:var(--muted);">方法</th>
+              <th style="text-align:left;padding:8px 6px;color:var(--muted);">MCP 方法</th>
+              <th style="text-align:center;padding:8px 6px;color:var(--muted);">状态</th>
+              <th style="text-align:right;padding:8px 6px;color:var(--muted);">耗时</th>
+              <th style="text-align:left;padding:8px 6px;color:var(--muted);">客户端</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 </main>
@@ -1702,7 +1732,53 @@ $("toggleKey").onclick = () => {
   $("llmApiKey").classList.toggle("secret");
   $("toggleKey").textContent = $("llmApiKey").classList.contains("secret") ? "显示" : "隐藏";
 };
+let _logData = [];
+function statusBadge(code) {
+  if (code >= 200 && code < 300) return '<span style="color:var(--ok)">' + code + '</span>';
+  if (code >= 400) return '<span style="color:var(--bad)">' + code + '</span>';
+  return '<span style="color:var(--warn)">' + code + '</span>';
+}
+function shortUA(ua) {
+  if (!ua) return '';
+  if (ua.includes('ChatGPT') || ua.includes('openai-mcp')) return 'ChatGPT';
+  if (ua.includes('curl')) return 'curl';
+  if (ua.includes('python')) return 'Python';
+  if (ua.includes('PowerShell')) return 'PowerShell';
+  if (ua.includes('Chrome') || ua.includes('Edg')) return 'Browser';
+  return ua.length > 30 ? ua.slice(0, 30) + '...' : ua;
+}
+function renderLogs() {
+  const filter = $("logFilter").value;
+  let rows = _logData;
+  if (filter === 'chatgpt') rows = rows.filter(r => (r.userAgent || '').includes('openai') || (r.userAgent || '').includes('ChatGPT'));
+  else if (filter === 'error') rows = rows.filter(r => r.status >= 400);
+  else if (filter === 'mcp') rows = rows.filter(r => r.mcpMethod || r.path === '/mcp');
+  $("logCount").textContent = rows.length + ' / ' + _logData.length + ' 条';
+  $("logBody").innerHTML = rows.map(r => {
+    const t = r.ts ? new Date(r.ts).toLocaleString('zh-CN', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '';
+    return '<tr style="border-bottom:1px solid #eef0f4;">'
+      + '<td style="padding:6px;white-space:nowrap;font-size:12px;">' + t + '</td>'
+      + '<td style="padding:6px;"><span class="mono" style="font-size:12px;">' + (r.method || '') + '</span></td>'
+      + '<td style="padding:6px;font-size:12px;">' + (r.mcpMethod || '<span style="color:var(--muted)">-</span>') + '</td>'
+      + '<td style="padding:6px;text-align:center;">' + statusBadge(r.status) + '</td>'
+      + '<td style="padding:6px;text-align:right;font-size:12px;color:var(--muted);">' + (r.durationMs != null ? r.durationMs + 'ms' : '') + '</td>'
+      + '<td style="padding:6px;font-size:12px;">' + shortUA(r.userAgent) + '</td>'
+      + '</tr>';
+  }).join('');
+}
+async function refreshLogs() {
+  try {
+    const data = await api("/admin/requests?limit=100");
+    _logData = data.entries || [];
+    renderLogs();
+  } catch (error) {
+    $("logBody").innerHTML = '<tr><td colspan="6" style="padding:12px;color:var(--bad);">' + (error.message || error) + '</td></tr>';
+  }
+}
+$("logFilter").onchange = renderLogs;
+$("refreshLogs").onclick = refreshLogs;
 refresh().catch((error) => { $("details").textContent = String(error.message || error); });
+refreshLogs();
 </script>
 </body>
 </html>`;
@@ -1890,7 +1966,7 @@ export function createServer(config = loadConfig()) {
         const script = `
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = '选择 FileWorks 工作目录'
+$dialog.Description = '选择 ChatGPT FileBridge 工作目录'
 $dialog.ShowNewFolderButton = $true
 if ('${current.replace(/'/g, "''")}' -and (Test-Path -LiteralPath '${current.replace(/'/g, "''")}')) {
   $dialog.SelectedPath = '${current.replace(/'/g, "''")}'
@@ -1943,6 +2019,25 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         }
         finally {
             writeJsonFile(llmConfigPath(), previous);
+        }
+    });
+    app.get("/admin/requests", requireLocalAdmin, (req, res) => {
+        const logPath = process.env.DEVSPACE_REQUEST_LOG;
+        if (!logPath || !existsSync(logPath)) {
+            res.json({ ok: true, entries: [] });
+            return;
+        }
+        const limit = Math.min(Number(req.query.limit) || 50, 500);
+        try {
+            const lines = readFileSync(logPath, "utf8").trim().split(/\r?\n/);
+            const entries = lines.slice(-limit).reverse().map((line) => {
+                try { return JSON.parse(line); }
+                catch { return null; }
+            }).filter(Boolean);
+            res.json({ ok: true, total: lines.length, entries });
+        }
+        catch (error) {
+            res.status(500).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
         }
     });
     app.post("/admin/apply", requireLocalAdmin, (_req, res) => {

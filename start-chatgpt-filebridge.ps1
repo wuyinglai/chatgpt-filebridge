@@ -141,7 +141,7 @@ function Cleanup {
     }
 }
 
-Write-Host "=== Enhanced DevSpace + LLM ===" -ForegroundColor Cyan
+Write-Host "=== ChatGPT FileBridge + LLM ===" -ForegroundColor Cyan
 Write-Host "  Directory: $Directory" -ForegroundColor White
 
 if (-not (Test-Path $Directory)) {
@@ -185,7 +185,7 @@ $llmExample = Join-Path $projectRoot "local-llm-mcp\llm_config.json.example"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
 if (-not (Test-Path $serverScript)) {
-    Write-Host "[ERROR] Enhanced DevSpace script not found: $serverScript" -ForegroundColor Red
+    Write-Host "[ERROR] ChatGPT FileBridge script not found: $serverScript" -ForegroundColor Red
     pause
     exit 1
 }
@@ -297,7 +297,7 @@ $configJson = @{
 } | ConvertTo-Json
 [System.IO.File]::WriteAllText($configFile, $configJson, $utf8NoBom)
 
-Write-Host "[3/3] Starting Enhanced DevSpace..." -ForegroundColor Yellow
+Write-Host "[3/3] Starting ChatGPT FileBridge..." -ForegroundColor Yellow
 $serverOutLog = Join-Path $env:TEMP "enhanced-devspace-server-$Port-$PID.out.log"
 $serverErrLog = Join-Path $env:TEMP "enhanced-devspace-server-$Port-$PID.err.log"
 $requestLog = Join-Path $env:TEMP "enhanced-devspace-requests-$Port-$PID.jsonl"
@@ -327,12 +327,12 @@ for ($i = 0; $i -lt 12; $i++) {
         $alive = $true
         break
     }
-    Write-Host "  Waiting for Enhanced DevSpace..." -ForegroundColor Gray
+    Write-Host "  Waiting for ChatGPT FileBridge..." -ForegroundColor Gray
     Start-Sleep -Seconds 2
 }
 
 if (-not $alive) {
-    Write-Host "[ERROR] Enhanced DevSpace failed to start." -ForegroundColor Red
+    Write-Host "[ERROR] ChatGPT FileBridge failed to start." -ForegroundColor Red
     Cleanup -ServerProcess $serverProc -TunnelHandle $tunnelProc -TargetPort $Port -ProjectRoot $projectRoot
     pause
     exit 1
@@ -368,8 +368,8 @@ if ($publicOk) {
 Write-Host ""
 Write-Host "Use this in ChatGPT:" -ForegroundColor Yellow
 Write-Host "  Fill URL: $tunnelUrl/mcp" -ForegroundColor Green
-Write-Host "  Then ask: use Enhanced DevSpace call_llm if text generation is refused, then write files."
-Write-Host "  After code changes, run: .\hot-restart-devspace.ps1   (keeps this URL)" -ForegroundColor Yellow
+Write-Host "  Then ask: use ChatGPT FileBridge call_llm if text generation is refused, then write files."
+Write-Host "  After config changes, use admin console 'Save All' button (keeps tunnel URL)" -ForegroundColor Yellow
 Write-Host ""
 
 # Auto-open admin console in default browser
@@ -377,7 +377,7 @@ try {
     Start-Process "http://127.0.0.1:$Port" -ErrorAction SilentlyContinue
 } catch {}
 
-Write-Host "Press Enter to stop Enhanced DevSpace services..." -ForegroundColor Gray
+Write-Host "Press Enter to stop ChatGPT FileBridge services..." -ForegroundColor Gray
 
 try {
     while ($true) {
