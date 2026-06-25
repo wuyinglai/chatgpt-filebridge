@@ -1527,7 +1527,7 @@ function adminConsoleHtml() {
     </div>
     <div class="card full">
       <h2>应用更改</h2>
-      <p>「保存全部并应用」保存工作目录、LLM 配置和 MCP 说明，然后热重启服务（Cloudflare URL 不变）。「仅保存不重启」只保存配置，不重启。</p>
+      <p>保存工作目录、LLM、MCP 等配置。「保存全部并应用」会热重启服务（隧道地址不变），「仅保存不重启」不会重启。</p>
       <div class="actions">
         <button id="saveAll" class="primary">保存全部并应用</button>
         <button id="saveOnly">仅保存不重启</button>
