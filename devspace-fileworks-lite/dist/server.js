@@ -1946,21 +1946,17 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         }
     });
     app.post("/admin/apply", requireLocalAdmin, (_req, res) => {
-        const restartScript = join(PROJECT_ROOT, "hot-restart-devspace.ps1");
-        if (!existsSync(restartScript)) {
-            res.status(500).json({ ok: false, error: `Restart script not found: ${restartScript}` });
-            return;
-        }
+        res.json({ ok: true, message: "Hot restart scheduled. Refresh this page in a few seconds.", mcpUrl: `${config.publicBaseUrl.replace(/\/+$/, "")}/mcp` });
         setTimeout(() => {
-            const child = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", restartScript], {
-                cwd: PROJECT_ROOT,
+            const child = spawn(process.execPath, process.argv.slice(1), {
+                cwd: process.cwd(),
                 detached: true,
-                stdio: "ignore",
-                windowsHide: true,
+                stdio: "inherit",
+                env: process.env,
             });
             child.unref();
-        }, 350);
-        res.json({ ok: true, message: "Hot restart scheduled. Refresh this page in a few seconds.", mcpUrl: `${config.publicBaseUrl.replace(/\/+$/, "")}/mcp` });
+            process.exit(0);
+        }, 500);
     });
     app.use(mcpAuthRouter({
         provider: oauthProvider,
