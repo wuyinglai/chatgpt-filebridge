@@ -2122,6 +2122,40 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         }
         next();
     });
+    app.all("/mcp", (req, res, next) => {
+        // Keep SSE streams alive through Cloudflare tunnel's idle timeout (~100s).
+        // The MCP SDK has no built-in keep-alive, so we inject periodic SSE comments.
+        const KEEPALIVE_MS = 25000;
+        let isSSE = false;
+        let keepAliveTimer = null;
+        const origWriteHead = res.writeHead.bind(res);
+        const origWrite = res.write.bind(res);
+        const origEnd = res.end.bind(res);
+        res.writeHead = (statusCode, ...rest) => {
+            const result = origWriteHead(statusCode, ...rest);
+            if ((statusCode === 200 || statusCode === 202) && req.path === "/mcp") {
+                const ct = String(res.getHeader("content-type") || "");
+                if (ct.includes("text/event-stream")) {
+                    isSSE = true;
+                    keepAliveTimer = setInterval(() => {
+                        try { origWrite(": keep-alive\n\n"); } catch {}
+                    }, KEEPALIVE_MS);
+                    res.on("close", () => {
+                        if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+                    });
+                }
+            }
+            return result;
+        };
+        res.end = (chunk, ...args) => {
+            if (isSSE) {
+                if (chunk) origWrite(chunk);
+                return res;
+            }
+            return origEnd(chunk, ...args);
+        };
+        next();
+    });
     app.all("/mcp", async (req, res) => {
         const requestId = res.locals.requestId;
         const sessionId = req.header("mcp-session-id");
