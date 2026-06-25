@@ -12,6 +12,7 @@ env/
 
 # Secrets and local config
 local-llm-mcp/llm_config.json
+local-llm-mcp/llm_profiles.json
 .env
 .env.*
 !.env.example
