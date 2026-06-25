@@ -1514,15 +1514,17 @@ function adminConsoleHtml() {
     <div class="card">
       <h2>LLM 配置</h2>
       <div class="row"><label>当前配置</label><select id="llmProfileSelect"></select><button id="useProfile">设为当前</button></div>
-      <div class="row"><label>配置名称</label><input id="llmProfileName" placeholder="default" /><button id="saveProfile">保存为配置</button></div>
+      <div class="row"><label>配置名称</label><input id="llmProfileName" placeholder="default" /><span></span></div>
       <div class="row"><label>API URL</label><input id="llmApiUrl" /><span></span></div>
       <div class="row"><label>API Key</label><input id="llmApiKey" class="mono secret" /><button id="toggleKey">显示</button></div>
       <div class="row"><label>Model</label><input id="llmModel" /><span></span></div>
       <div class="row"><label>Timeout 秒</label><input id="llmTimeout" type="number" min="1" /><span></span></div>
       <div class="row"><label>Max tokens</label><input id="llmMaxTokens" type="number" min="1" /><span></span></div>
       <div class="actions">
+        <button id="updateProfile" class="primary">保存修改</button>
+        <button id="saveProfile">新增配置</button>
         <button id="testLlm">测试 LLM</button>
-        <button id="deleteProfile" class="danger">删除当前配置</button>
+        <button id="deleteProfile" class="danger">删除</button>
       </div>
     </div>
     <div class="card full">
@@ -1686,6 +1688,13 @@ $("saveProfile").onclick = async () => {
   if (!name) { $("details").textContent = "配置名称不能为空"; return; }
   const result = await api("/admin/llm-profiles", { method:"POST", body: JSON.stringify({ action:"save", name, profile: formPayload().llm }) });
   $("details").textContent = JSON.stringify(result, null, 2);
+  await refresh();
+};
+$("updateProfile").onclick = async () => {
+  const name = $("llmProfileSelect").value;
+  if (!name) { $("details").textContent = "请先选择一个配置"; return; }
+  const result = await api("/admin/llm-profiles", { method:"POST", body: JSON.stringify({ action:"save", name, profile: formPayload().llm }) });
+  $("details").textContent = "已更新配置: " + name;
   await refresh();
 };
 $("useProfile").onclick = async () => {
